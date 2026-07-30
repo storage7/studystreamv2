@@ -20,7 +20,27 @@ export default function HistoryPage() {
   useEffect(() => {
     fetch("/api/history")
       .then((r) => r.json())
-      .then((d) => { setHistory(d.history || []); setLoading(false); })
+      .then((d) => {
+        const rawHistory: HistoryItem[] = d.history || [];
+        
+        // Deduplicate history items by lectureId, keeping the most recent one
+        const historyMap = new Map<string, HistoryItem>();
+        
+        rawHistory.forEach((item) => {
+          const existing = historyMap.get(item.lectureId);
+          if (!existing || new Date(item.lastWatched) > new Date(existing.lastWatched)) {
+            historyMap.set(item.lectureId, item);
+          }
+        });
+
+        // Convert back to an array and sort by last watched (newest first)
+        const uniqueHistory = Array.from(historyMap.values()).sort(
+          (a, b) => new Date(b.lastWatched).getTime() - new Date(a.lastWatched).getTime()
+        );
+
+        setHistory(uniqueHistory);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
@@ -49,7 +69,7 @@ export default function HistoryPage() {
         <div className="space-y-3">
           {history.map((item) => (
             <Link
-              key={item.lectureId + item.lastWatched}
+              key={item.lectureId} // Simplified key since duplicates are removed
               href={`/dashboard/watch/${item.lectureId}`}
               className="flex items-center gap-4 bg-surface-2 border border-border rounded-2xl p-4 hover:border-brand/50 transition-all group"
             >
