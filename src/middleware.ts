@@ -11,12 +11,7 @@ const PUBLIC_PATHS = ["/", "/api/auth/login", "/api/health"];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public paths
-  if (PUBLIC_PATHS.includes(pathname)) {
-    return NextResponse.next();
-  }
-
-  // Allow static assets
+  // 1. Allow static assets immediately
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -27,12 +22,30 @@ export async function middleware(request: NextRequest) {
 
   const token = request.cookies.get(COOKIE_NAME)?.value;
 
+  // 2. FIX: If the user goes to the login page ("/") but already has a cookie,
+  // verify it. If it's valid, send them straight to the dashboard.
+  if (pathname === "/" && token) {
+    try {
+      await jwtVerify(token, SECRET);
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    } catch {
+      // If the token is invalid/expired, delete it and let them see the login page
+      const response = NextResponse.next();
+      response.cookies.delete(COOKIE_NAME);
+      return response;
+    }
+  }
+
+  // 3. Allow other public paths (or "/" if they had no token)
+  if (PUBLIC_PATHS.includes(pathname)) {
+    return NextResponse.next();
+  }
+
+  // 4. Protected routes enforcement
   if (!token) {
-    // For API routes, return 401
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    // For page routes, redirect to login
     return NextResponse.redirect(new URL("/", request.url));
   }
 
@@ -43,7 +56,9 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    return NextResponse.redirect(new URL("/", request.url));
+    const response = NextResponse.redirect(new URL("/", request.url));
+    response.cookies.delete(COOKIE_NAME);
+    return response;
   }
 }
 
