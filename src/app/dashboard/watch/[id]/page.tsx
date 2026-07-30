@@ -35,7 +35,7 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
           const saved = localStorage.getItem(`server_${id}`);
           if (saved) setActiveServer(parseInt(saved));
 
-          // Fetch all lectures in same subject for prev/next
+          // Fetch all lectures in same subject for playlist
           fetch(`/api/lectures?subjectId=${d.lecture.subjectId}`)
             .then((r) => r.json())
             .then((ld) => setAllLectures(ld.lectures || []));
@@ -85,11 +85,6 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
     }
   };
 
-  // Find prev/next
-  const currentIdx = allLectures.findIndex((l) => l.id === id);
-  const prevLecture = currentIdx > 0 ? allLectures[currentIdx - 1] : null;
-  const nextLecture = currentIdx < allLectures.length - 1 ? allLectures[currentIdx + 1] : null;
-
   if (loading) {
     return (
       <div className="space-y-4">
@@ -114,7 +109,7 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Video Player */}
-      <div className="relative bg-black rounded-2xl overflow-hidden group">
+      <div className="relative bg-black rounded-2xl overflow-hidden">
         <div className="aspect-video relative">
           {serverUrl ? (
             <iframe
@@ -143,28 +138,6 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
               </div>
             </div>
           )}
-        </div>
-
-        {/* Controls overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {prevLecture && (
-                <Link href={`/dashboard/watch/${prevLecture.id}`} className="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Previous Lecture">
-                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </Link>
-              )}
-              {nextLecture && (
-                <Link href={`/dashboard/watch/${nextLecture.id}`} className="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Next Lecture">
-                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
