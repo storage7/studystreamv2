@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'StudyStream v2',
+    name: 'DIA',
     short_name: 'StudyStream',
     description: 'Your study companion application',
     start_url: '/',
