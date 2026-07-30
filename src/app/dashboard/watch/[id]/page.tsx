@@ -115,6 +115,7 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
             <iframe
               src={serverUrl}
               className="w-full h-full"
+              allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
             />
