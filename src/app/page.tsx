@@ -26,7 +26,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard");
+      // FIXED: Using replace instead of push prevents the back-button issue
+      router.replace("/dashboard");
     } catch {
       window.location.href = "https://google.com";
     } finally {
