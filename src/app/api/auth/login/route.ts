@@ -46,7 +46,15 @@ export async function POST(request: NextRequest) {
         role: user.role,
       },
     });
-  } catch {
-    return NextResponse.json({ redirect: true }, { status: 401 });
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
+  
+    return NextResponse.json(
+      {
+        success: false,
+        error: String(error),
+      },
+      { status: 500 }
+    );
   }
 }
