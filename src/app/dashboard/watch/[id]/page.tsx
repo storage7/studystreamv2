@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, use } from "react";
+import { useEffect, useState, useCallback, use } from "react";
 import Link from "next/link";
 import { useAuth } from "../../layout";
 
@@ -21,11 +21,8 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
   const [lecture, setLecture] = useState<Lecture | null>(null);
   const [allLectures, setAllLectures] = useState<Lecture[]>([]);
   const [activeServer, setActiveServer] = useState(0);
-  const [theaterMode, setTheaterMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
-  const playerRef = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -72,38 +69,6 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
     setIsFavorite((prev) => !prev);
   }, [id]);
 
-  const goFullscreen = useCallback(() => {
-    if (playerRef.current) {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        playerRef.current.requestFullscreen();
-      }
-    }
-  }, []);
-
-  const goPiP = useCallback(async () => {
-    // PiP for iframes is complex; we'll try to use the document PiP API
-    if (iframeRef.current && document.pictureInPictureEnabled) {
-      try {
-        // Can't directly PiP an iframe, but we show a message
-        alert("PiP works best with direct video elements. Try fullscreen mode instead.");
-      } catch {
-        // ignore
-      }
-    }
-  }, []);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "f" || e.key === "F") goFullscreen();
-      if (e.key === "t" || e.key === "T") setTheaterMode((p) => !p);
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [goFullscreen]);
-
   const switchServer = (idx: number) => {
     setActiveServer(idx);
     localStorage.setItem(`server_${id}`, String(idx));
@@ -147,16 +112,14 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
   const serverUrl = lecture.servers[activeServer]?.url;
 
   return (
-    <div className={`space-y-6 ${theaterMode ? "max-w-none" : "max-w-6xl mx-auto"}`}>
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* Video Player */}
-      <div ref={playerRef} className="relative bg-black rounded-2xl overflow-hidden group">
-        <div className={`${theaterMode ? "aspect-[21/9]" : "aspect-video"} relative`}>
+      <div className="relative bg-black rounded-2xl overflow-hidden group">
+        <div className="aspect-video relative">
           {serverUrl ? (
             <iframe
-              ref={iframeRef}
               src={serverUrl}
               className="w-full h-full"
-              allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
             />
@@ -200,23 +163,6 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
                   </svg>
                 </Link>
               )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setTheaterMode((p) => !p)} className="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Theater Mode (T)">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
-                </svg>
-              </button>
-              <button onClick={goPiP} className="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Picture in Picture">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
-                </svg>
-              </button>
-              <button onClick={goFullscreen} className="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Fullscreen (F)">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-              </button>
             </div>
           </div>
         </div>
@@ -267,15 +213,6 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
               </div>
             </div>
           )}
-
-          {/* Keyboard shortcuts */}
-          <div className="mt-6 p-4 bg-surface-2 border border-border rounded-xl">
-            <h3 className="text-sm font-semibold text-text-muted mb-2">Keyboard Shortcuts</h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <span className="text-text-muted"><kbd className="bg-surface-3 px-2 py-0.5 rounded text-white text-xs">F</kbd> Fullscreen</span>
-              <span className="text-text-muted"><kbd className="bg-surface-3 px-2 py-0.5 rounded text-white text-xs">T</kbd> Theater Mode</span>
-            </div>
-          </div>
         </div>
 
         {/* Playlist sidebar */}
