@@ -33,7 +33,14 @@ export default function DashboardHome() {
       fetch("/api/history").then((r) => r.json()),
     ]).then(([bData, hData]) => {
       setBatches(bData.batches || []);
-      setHistory(hData.history || []);
+      
+      // Sort history to ensure the most recently watched video is always first
+      const sortedHistory = (hData.history || []).sort(
+        (a: HistoryItem, b: HistoryItem) => 
+          new Date(b.lastWatched).getTime() - new Date(a.lastWatched).getTime()
+      );
+      
+      setHistory(sortedHistory);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -66,7 +73,8 @@ export default function DashboardHome() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">Continue Watching</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {history.slice(0, 4).map((item) => (
+            {/* CHANGED: .slice(0, 4) to .slice(0, 1) to only show 1 tile */}
+            {history.slice(0, 1).map((item) => (
               <Link
                 key={item.lectureId}
                 href={`/dashboard/watch/${item.lectureId}`}
