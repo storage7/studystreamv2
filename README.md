@@ -212,13 +212,6 @@ Lecture 1,PCM Batch,Physics,1,Description,1:30:00,https://embed1,https://embed2,
 ]
 ```
 
-## ⌨️ Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `F` | Toggle fullscreen |
-| `T` | Toggle theater mode |
-
 ## 🤝 Contributing
 
 This is a private project. Contact the administrator for access.
