@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-// Added permissions to the schema import
 import { batches, permissions } from "@/db/schema";
-// Added eq for filtering
 import { asc, eq } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "@/lib/api-helpers";
 
 export async function GET() {
-  // Extract the user from the auth helper
   const { user, error } = await requireAuth();
   if (error) return error;
 
@@ -27,20 +24,20 @@ export async function GET() {
     .from(permissions)
     .where(eq(permissions.userId, user.id));
 
-  // 3. Filter the batches based on the permission hierarchy
+  // 3. Filter the batches based on the permission hierarchy using the boolean `granted` column
   const allowedBatches = all.filter((batch) => {
     // A. Check for explicit batch-level rules first (Highest Priority)
-    const explicitDeny = userPerms.find((p) => p.batchId === batch.id && p.access.toLowerCase() === "denied");
+    const explicitDeny = userPerms.find((p) => p.batchId === batch.id && p.granted === false);
     if (explicitDeny) return false;
 
-    const explicitGrant = userPerms.find((p) => p.batchId === batch.id && p.access.toLowerCase() === "granted");
+    const explicitGrant = userPerms.find((p) => p.batchId === batch.id && p.granted === true);
     if (explicitGrant) return true;
 
     // B. Check for global "All Batches" rules (batchId is null)
-    const globalDeny = userPerms.find((p) => !p.batchId && p.access.toLowerCase() === "denied");
+    const globalDeny = userPerms.find((p) => !p.batchId && p.granted === false);
     if (globalDeny) return false;
 
-    const globalGrant = userPerms.find((p) => !p.batchId && p.access.toLowerCase() === "granted");
+    const globalGrant = userPerms.find((p) => !p.batchId && p.granted === true);
     if (globalGrant) return true;
 
     // C. Default to denied if no rules match
