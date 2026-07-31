@@ -21,26 +21,41 @@ interface HistoryItem {
   progress: number;
 }
 
+interface Stats {
+  batches: number;
+  subjects: number;
+  lectures: number;
+}
+
 export default function DashboardHome() {
   const { user } = useAuth();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  // 1. Add state for our new stats
+  const [stats, setStats] = useState<Stats>({ batches: 0, subjects: 0, lectures: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 2. Add the new /api/user-stats fetch to Promise.all
     Promise.all([
       fetch("/api/batches").then((r) => r.json()),
       fetch("/api/history").then((r) => r.json()),
-    ]).then(([bData, hData]) => {
+      fetch("/api/user-stats").then((r) => r.json()),
+    ]).then(([bData, hData, sData]) => {
       setBatches(bData.batches || []);
       
-      // Sort history to ensure the most recently watched video is always first
       const sortedHistory = (hData.history || []).sort(
         (a: HistoryItem, b: HistoryItem) => 
           new Date(b.lastWatched).getTime() - new Date(a.lastWatched).getTime()
       );
       
       setHistory(sortedHistory);
+      
+      // 3. Set the stats data
+      if (sData.stats) {
+        setStats(sData.stats);
+      }
+      
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -49,6 +64,10 @@ export default function DashboardHome() {
     return (
       <div className="space-y-8">
         <div className="h-8 w-48 skeleton rounded-lg" />
+        {/* Skeleton for stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+           {[1, 2, 3].map((i) => <div key={i} className="h-24 skeleton rounded-2xl" />)}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-48 skeleton rounded-2xl" />
@@ -68,12 +87,33 @@ export default function DashboardHome() {
         <p className="text-text-muted mt-1">Ready to continue learning?</p>
       </div>
 
+      {/* NEW: Platform Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-surface-2 border border-border rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-text-muted mb-1">Batches</h3>
+          <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600">
+            {stats.batches}
+          </p>
+        </div>
+        <div className="bg-surface-2 border border-border rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-text-muted mb-1">Subjects</h3>
+          <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">
+            {stats.subjects}
+          </p>
+        </div>
+        <div className="bg-surface-2 border border-border rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-text-muted mb-1">Lectures</h3>
+          <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-pink-600">
+            {stats.lectures}
+          </p>
+        </div>
+      </div>
+
       {/* Continue Watching */}
       {history.length > 0 && (
         <section>
           <h2 className="text-lg font-semibold text-white mb-4">Continue Watching</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {/* CHANGED: .slice(0, 4) to .slice(0, 1) to only show 1 tile */}
             {history.slice(0, 1).map((item) => (
               <Link
                 key={item.lectureId}
@@ -132,7 +172,7 @@ export default function DashboardHome() {
               >
                 <div className="w-14 h-14 bg-brand/10 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-brand/20 transition-colors">
                   <svg className="w-7 h-7 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold text-white">{batch.name}</h3>
