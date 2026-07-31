@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { batches } from "@/db/schema";
-import { asc } from "drizzle-orm";
+// Added permissions to the schema import
+import { batches, permissions } from "@/db/schema";
+// Added eq for filtering
+import { asc, eq } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "@/lib/api-helpers";
 
 export async function GET() {
-  const { error } = await requireAuth();
+  // Extract the user from the auth helper
+  const { user, error } = await requireAuth();
   if (error) return error;
 
   const all = await db
@@ -13,7 +16,38 @@ export async function GET() {
     .from(batches)
     .orderBy(asc(batches.sortOrder), asc(batches.createdAt));
 
-  return NextResponse.json({ batches: all });
+  // 1. If user is an admin, grant access to everything immediately
+  if (user.role === "admin") {
+    return NextResponse.json({ batches: all });
+  }
+
+  // 2. Fetch the access control list for this specific user
+  const userPerms = await db
+    .select()
+    .from(permissions)
+    .where(eq(permissions.userId, user.id));
+
+  // 3. Filter the batches based on the permission hierarchy
+  const allowedBatches = all.filter((batch) => {
+    // A. Check for explicit batch-level rules first (Highest Priority)
+    const explicitDeny = userPerms.find((p) => p.batchId === batch.id && p.access.toLowerCase() === "denied");
+    if (explicitDeny) return false;
+
+    const explicitGrant = userPerms.find((p) => p.batchId === batch.id && p.access.toLowerCase() === "granted");
+    if (explicitGrant) return true;
+
+    // B. Check for global "All Batches" rules (batchId is null)
+    const globalDeny = userPerms.find((p) => !p.batchId && p.access.toLowerCase() === "denied");
+    if (globalDeny) return false;
+
+    const globalGrant = userPerms.find((p) => !p.batchId && p.access.toLowerCase() === "granted");
+    if (globalGrant) return true;
+
+    // C. Default to denied if no rules match
+    return false;
+  });
+
+  return NextResponse.json({ batches: allowedBatches });
 }
 
 export async function POST(request: NextRequest) {
