@@ -31,40 +31,52 @@ export default function DashboardHome() {
   const { user } = useAuth();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  // 1. Add state for our new stats
   const [stats, setStats] = useState<Stats>({ batches: 0, subjects: 0, lectures: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 2. Add the new /api/user-stats fetch to Promise.all
-    Promise.all([
-      fetch("/api/batches").then((r) => r.json()),
-      fetch("/api/history").then((r) => r.json()),
-      fetch("/api/user-stats").then((r) => r.json()),
-    ]).then(([bData, hData, sData]) => {
-      setBatches(bData.batches || []);
-      
-      const sortedHistory = (hData.history || []).sort(
-        (a: HistoryItem, b: HistoryItem) => 
-          new Date(b.lastWatched).getTime() - new Date(a.lastWatched).getTime()
-      );
-      
-      setHistory(sortedHistory);
-      
-      // 3. Set the stats data
-      if (sData.stats) {
-        setStats(sData.stats);
+    const fetchDashboardData = async () => {
+      try {
+        // 1. Fetch Batches Safely
+        const bRes = await fetch("/api/batches");
+        if (bRes.ok) {
+          const bData = await bRes.json();
+          setBatches(bData.batches || []);
+        }
+
+        // 2. Fetch History Safely
+        const hRes = await fetch("/api/history");
+        if (hRes.ok) {
+          const hData = await hRes.json();
+          const sortedHistory = (hData.history || []).sort(
+            (a: HistoryItem, b: HistoryItem) => 
+              new Date(b.lastWatched).getTime() - new Date(a.lastWatched).getTime()
+          );
+          setHistory(sortedHistory);
+        }
+
+        // 3. Fetch Stats Safely
+        const sRes = await fetch("/api/user-stats");
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          if (sData.stats) {
+            setStats(sData.stats);
+          }
+        }
+      } catch (error) {
+        console.error("Dashboard failed to load some data:", error);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    };
+
+    fetchDashboardData();
   }, []);
 
   if (loading) {
     return (
       <div className="space-y-8">
         <div className="h-8 w-48 skeleton rounded-lg" />
-        {/* Skeleton for stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
            {[1, 2, 3].map((i) => <div key={i} className="h-24 skeleton rounded-2xl" />)}
         </div>
@@ -87,7 +99,7 @@ export default function DashboardHome() {
         <p className="text-text-muted mt-1">Ready to continue learning?</p>
       </div>
 
-      {/* NEW: Platform Stats Cards */}
+      {/* Platform Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-surface-2 border border-border rounded-2xl p-6">
           <h3 className="text-sm font-medium text-text-muted mb-1">Batches</h3>
@@ -136,7 +148,6 @@ export default function DashboardHome() {
                       </svg>
                     </div>
                   </div>
-                  {/* Progress bar */}
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-surface">
                     <div className="h-full bg-brand" style={{ width: `${Math.min(item.progress / 36, 100)}%` }} />
                   </div>
