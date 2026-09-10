@@ -1,21 +1,25 @@
 import { db } from "@/db";
 import { batches, subjects, lectures, permissions } from "@/db/schema";
 import { eq, inArray, count } from "drizzle-orm";
-import { getUser } from "@/lib/auth"; // Adjust this import based on your exact auth helper
+import { getSession } from "@/lib/auth"; 
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const user = await getUser();
-    if (!user) {
+    const session = await getSession();
+    
+    // Check for session and user ID
+    if (!session || !session.user || !session.user.id) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
+
+    const userId = session.user.id;
 
     // 1. Fetch batch IDs the user has permission to access
     const userPermissions = await db
       .select({ batchId: permissions.batchId })
       .from(permissions)
-      .where(eq(permissions.userId, user.id));
+      .where(eq(permissions.userId, userId));
 
     const allowedBatchIds = userPermissions.map((p) => p.batchId);
 
