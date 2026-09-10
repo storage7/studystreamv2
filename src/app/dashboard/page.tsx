@@ -55,14 +55,14 @@ export default function DashboardHome() {
           setHistory(sortedHistory);
         }
 
-        // 3. Fetch Stats Safely
-        const sRes = await fetch("/api/user-stats");
-        if (sRes.ok) {
-          const sData = await sRes.json();
-          if (sData.stats) {
-            setStats(sData.stats);
-          }
-        }
+        // 3. Manual Stats Entry (Bypassing the API entirely)
+        // Change these numbers whenever you want the dashboard to update
+        setStats({
+          batches: 2,
+          subjects: 9,
+          lectures: 129
+        });
+        
       } catch (error) {
         console.error("Dashboard failed to load some data:", error);
       } finally {
