@@ -8,7 +8,6 @@ export async function GET() {
   try {
     const session = await getSession();
     
-    // Check for session directly since the session object IS the user data
     if (!session || !session.id) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
@@ -21,9 +20,12 @@ export async function GET() {
       .from(permissions)
       .where(eq(permissions.userId, userId));
 
-    const allowedBatchIds = userPermissions.map((p) => p.batchId);
+    // 2. Filter out null values and assert the type as strictly strings
+    const allowedBatchIds = userPermissions
+      .map((p) => p.batchId)
+      .filter((id): id is string => id !== null);
 
-    // 2. Return 0 if the user has no granted courses
+    // 3. Return 0 if the user has no granted courses
     if (allowedBatchIds.length === 0) {
       return NextResponse.json({
         batches: 0,
@@ -32,7 +34,7 @@ export async function GET() {
       });
     }
 
-    // 3. Count batches and subjects filtered by allowed IDs
+    // 4. Count batches and subjects filtered by allowed IDs
     const [batchesCount] = await db
       .select({ value: count() })
       .from(batches)
@@ -43,13 +45,15 @@ export async function GET() {
       .from(subjects)
       .where(inArray(subjects.batchId, allowedBatchIds));
 
-    // 4. Count lectures based on the allowed subjects
+    // 5. Count lectures based on the allowed subjects
     const allowedSubjects = await db
       .select({ id: subjects.id })
       .from(subjects)
       .where(inArray(subjects.batchId, allowedBatchIds));
 
-    const allowedSubjectIds = allowedSubjects.map((s) => s.id);
+    const allowedSubjectIds = allowedSubjects
+      .map((s) => s.id)
+      .filter((id): id is string => id !== null);
 
     let lecturesCount = { value: 0 };
     if (allowedSubjectIds.length > 0) {
