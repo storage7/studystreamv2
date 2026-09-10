@@ -1,10 +1,9 @@
 import { db } from "@/db";
 import { batches, subjects, lectures, permissions } from "@/db/schema";
-import { eq, inArray, count, or } from "drizzle-orm";
+import { eq, inArray, count } from "drizzle-orm";
 import { getSession } from "@/lib/auth"; 
 import { NextResponse } from "next/server";
 
-// PREVENT CACHING: Forces Next.js to fetch live data on every page load
 export const dynamic = "force-dynamic";
 
 export async function GET() {
@@ -15,42 +14,34 @@ export async function GET() {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // 1. Identify user: Admins often grant access via Mobile number instead of UUID. 
-    // This safely checks the DB for either match.
-    const condition = session.mobile 
-      ? or(eq(permissions.userId, session.id), eq(permissions.userId, session.mobile))
-      : eq(permissions.userId, session.id);
-
-    const userPermissions = await db
-      .select({ batchId: permissions.batchId })
+    // 1. Select the entire row to bypass Drizzle column-alias bugs.
+    // We STRICTLY query only session.id to prevent Postgres UUID casting crashes.
+    const allUserPermissions = await db
+      .select()
       .from(permissions)
-      .where(condition);
+      .where(eq(permissions.userId, session.id));
 
-    // 2. Filter nulls and remove duplicates to prevent counting identical batches twice
+    // 2. Extract batchIds securely and remove any duplicates
     const allowedBatchIds = Array.from(new Set(
-      userPermissions
+      allUserPermissions
         .map((p) => p.batchId)
-        .filter((id): id is string => id !== null)
+        .filter((id): id is string => id !== null && id !== undefined)
     ));
 
-    // 3. Return 0 immediately if no matches are found
+    // 3. Return 0 immediately if no valid grants are found for this user UUID
     if (allowedBatchIds.length === 0) {
       return NextResponse.json({ batches: 0, subjects: 0, lectures: 0 });
     }
 
-    // 4. Count Batches
-    const [batchesResult] = await db
-      .select({ value: count() })
-      .from(batches)
-      .where(inArray(batches.id, allowedBatchIds));
+    const batchesCount = allowedBatchIds.length;
 
-    // 5. Count Subjects
+    // 4. Count Subjects
     const [subjectsResult] = await db
       .select({ value: count() })
       .from(subjects)
       .where(inArray(subjects.batchId, allowedBatchIds));
 
-    // 6. Count Lectures
+    // 5. Fetch allowed subjects to filter lectures safely
     const allowedSubjects = await db
       .select({ id: subjects.id })
       .from(subjects)
@@ -60,6 +51,7 @@ export async function GET() {
       .map((s) => s.id)
       .filter((id): id is string => id !== null);
 
+    // 6. Count Lectures
     let lecturesCount = 0;
     if (allowedSubjectIds.length > 0) {
       const [lecturesResult] = await db
@@ -70,15 +62,14 @@ export async function GET() {
       lecturesCount = Number(lecturesResult?.value || 0);
     }
 
-    // Wrap results in Number() to prevent database string coercion bugs in the UI
     return NextResponse.json({
-      batches: Number(batchesResult?.value || 0),
+      batches: batchesCount,
       subjects: Number(subjectsResult?.value || 0),
       lectures: lecturesCount,
     });
   } catch (error) {
     console.error("Error fetching user stats:", error);
-    // Safe fallback to prevent UI crashes
+    // Fallback to 0 if a database crash occurs
     return NextResponse.json({ batches: 0, subjects: 0, lectures: 0 }); 
   }
 }
