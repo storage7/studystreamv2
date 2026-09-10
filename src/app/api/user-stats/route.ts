@@ -1,8 +1,11 @@
 import { db } from "@/db";
-import { batches, subjects, lectures, permissions } from "@/db/schema";
+import { subjects, lectures, permissions } from "@/db/schema";
 import { eq, inArray, count } from "drizzle-orm";
 import { getSession } from "@/lib/auth"; 
 import { NextResponse } from "next/server";
+
+// PREVENT CACHING: Forces Next.js to fetch fresh stats on every load
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
@@ -12,20 +15,17 @@ export async function GET() {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const userId = session.id;
-
     // 1. Fetch batch IDs the user has permission to access
     const userPermissions = await db
       .select({ batchId: permissions.batchId })
       .from(permissions)
-      .where(eq(permissions.userId, userId));
+      .where(eq(permissions.userId, session.id));
 
-    // 2. Filter out null values and assert the type as strictly strings
     const allowedBatchIds = userPermissions
       .map((p) => p.batchId)
       .filter((id): id is string => id !== null);
 
-    // 3. Return 0 if the user has no granted courses
+    // 2. Return 0 if the user has no granted courses
     if (allowedBatchIds.length === 0) {
       return NextResponse.json({
         batches: 0,
@@ -34,18 +34,19 @@ export async function GET() {
       });
     }
 
-    // 4. Count batches and subjects filtered by allowed IDs
-    const [batchesCount] = await db
-      .select({ value: count() })
-      .from(batches)
-      .where(inArray(batches.id, allowedBatchIds));
+    // 3. Batches count is exactly the length of the granted array
+    const batchesCount = allowedBatchIds.length;
 
-    const [subjectsCount] = await db
+    // 4. Count subjects linked to these batches
+    const [subjectsResult] = await db
       .select({ value: count() })
       .from(subjects)
       .where(inArray(subjects.batchId, allowedBatchIds));
+      
+    // Enforce strict Number typing to prevent string coercion bugs in the frontend
+    const subjectsCount = Number(subjectsResult?.value || 0);
 
-    // 5. Count lectures based on the allowed subjects
+    // 5. Fetch allowed subjects to securely filter lectures
     const allowedSubjects = await db
       .select({ id: subjects.id })
       .from(subjects)
@@ -55,22 +56,25 @@ export async function GET() {
       .map((s) => s.id)
       .filter((id): id is string => id !== null);
 
-    let lecturesCount = { value: 0 };
+    // 6. Count lectures linked to these subjects
+    let lecturesCount = 0;
     if (allowedSubjectIds.length > 0) {
-      const [result] = await db
+      const [lecturesResult] = await db
         .select({ value: count() })
         .from(lectures)
         .where(inArray(lectures.subjectId, allowedSubjectIds));
-      lecturesCount = result;
+        
+      lecturesCount = Number(lecturesResult?.value || 0);
     }
 
     return NextResponse.json({
-      batches: batchesCount.value,
-      subjects: subjectsCount.value,
-      lectures: lecturesCount.value,
+      batches: batchesCount,
+      subjects: subjectsCount,
+      lectures: lecturesCount,
     });
   } catch (error) {
     console.error("Error fetching user stats:", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+    // Fallback to 0 safely so the UI doesn't crash on error
+    return NextResponse.json({ batches: 0, subjects: 0, lectures: 0 });
   }
 }
