@@ -1,31 +1,68 @@
-import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { batches, subjects, lectures } from "@/db/schema";
-import { sql } from "drizzle-orm";
-import { getSession } from "@/lib/auth";
+import { batches, subjects, lectures, permissions } from "@/db/schema";
+import { eq, inArray, count } from "drizzle-orm";
+import { getUser } from "@/lib/auth"; // Adjust this import based on your exact auth helper
+import { NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSession();
+    const user = await getUser();
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Using sql`count(*)` is the most reliable way to count rows in Drizzle
-    const [batchesCount] = await db.select({ value: sql<number>`count(*)` }).from(batches);
-    const [subjectsCount] = await db.select({ value: sql<number>`count(*)` }).from(subjects);
-    const [lecturesCount] = await db.select({ value: sql<number>`count(*)` }).from(lectures);
+    // 1. Fetch batch IDs the user has permission to access
+    const userPermissions = await db
+      .select({ batchId: permissions.batchId })
+      .from(permissions)
+      .where(eq(permissions.userId, user.id));
+
+    const allowedBatchIds = userPermissions.map((p) => p.batchId);
+
+    // 2. Return 0 if the user has no granted courses
+    if (allowedBatchIds.length === 0) {
+      return NextResponse.json({
+        batches: 0,
+        subjects: 0,
+        lectures: 0,
+      });
+    }
+
+    // 3. Count batches and subjects filtered by allowed IDs
+    const [batchesCount] = await db
+      .select({ value: count() })
+      .from(batches)
+      .where(inArray(batches.id, allowedBatchIds));
+
+    const [subjectsCount] = await db
+      .select({ value: count() })
+      .from(subjects)
+      .where(inArray(subjects.batchId, allowedBatchIds));
+
+    // 4. Count lectures based on the allowed subjects
+    const allowedSubjects = await db
+      .select({ id: subjects.id })
+      .from(subjects)
+      .where(inArray(subjects.batchId, allowedBatchIds));
+
+    const allowedSubjectIds = allowedSubjects.map((s) => s.id);
+
+    let lecturesCount = { value: 0 };
+    if (allowedSubjectIds.length > 0) {
+      const [result] = await db
+        .select({ value: count() })
+        .from(lectures)
+        .where(inArray(lectures.subjectId, allowedSubjectIds));
+      lecturesCount = result;
+    }
 
     return NextResponse.json({
-      stats: {
-        // Enforce Number type just in case the database returns it as a string
-        batches: Number(batchesCount?.value) || 0,
-        subjects: Number(subjectsCount?.value) || 0,
-        lectures: Number(lecturesCount?.value) || 0,
-      },
+      batches: batchesCount.value,
+      subjects: subjectsCount.value,
+      lectures: lecturesCount.value,
     });
   } catch (error) {
-    console.error("Stats API Error:", error);
-    return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
+    console.error("Error fetching user stats:", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
