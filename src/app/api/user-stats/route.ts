@@ -8,12 +8,12 @@ export async function GET() {
   try {
     const session = await getSession();
     
-    // Check for session and user ID
-    if (!session || !session.user || !session.user.id) {
+    // Check for session directly since the session object IS the user data
+    if (!session || !session.id) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = session.id;
 
     // 1. Fetch batch IDs the user has permission to access
     const userPermissions = await db
