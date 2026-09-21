@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth, useToast } from "../../layout";
 import { useRouter } from "next/navigation";
 
+// Define the available servers you use in your platform
+// Make sure these names exactly match the "name" property of the servers in your lectures
+const AVAILABLE_SERVERS = ["Server 1", "Server 2", "Server 3"];
+
 interface User {
   id: string;
   fullName: string;
@@ -12,6 +16,7 @@ interface User {
   active: boolean;
   expiresAt: string | null;
   createdAt: string;
+  allowedServers?: string[] | null; // Added to interface
 }
 
 export default function AdminUsersPage() {
@@ -22,7 +27,18 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
-  const [form, setForm] = useState({ fullName: "", mobile: "", password: "", role: "guest", active: true, expiresAt: "" });
+  
+  // Added allowedServers to the form state
+  const [form, setForm] = useState({ 
+    fullName: "", 
+    mobile: "", 
+    password: "", 
+    role: "guest", 
+    active: true, 
+    expiresAt: "",
+    allowedServers: [] as string[]
+  });
+  
   const [search, setSearch] = useState("");
 
   const fetchUsers = useCallback(() => {
@@ -39,12 +55,14 @@ export default function AdminUsersPage() {
 
   const openCreate = () => {
     setEditUser(null);
-    setForm({ fullName: "", mobile: "", password: "", role: "guest", active: true, expiresAt: "" });
+    // Reset allowedServers when creating a new user
+    setForm({ fullName: "", mobile: "", password: "", role: "guest", active: true, expiresAt: "", allowedServers: [] });
     setShowModal(true);
   };
 
   const openEdit = (u: User) => {
     setEditUser(u);
+    // Pre-fill allowedServers when editing an existing user
     setForm({
       fullName: u.fullName,
       mobile: u.mobile,
@@ -52,8 +70,19 @@ export default function AdminUsersPage() {
       role: u.role,
       active: u.active,
       expiresAt: u.expiresAt ? u.expiresAt.split("T")[0] : "",
+      allowedServers: u.allowedServers || [],
     });
     setShowModal(true);
+  };
+
+  // Toggle individual server selection
+  const handleServerToggle = (serverName: string) => {
+    setForm((prev) => ({
+      ...prev,
+      allowedServers: prev.allowedServers.includes(serverName)
+        ? prev.allowedServers.filter((s) => s !== serverName) // Remove if checked
+        : [...prev.allowedServers, serverName], // Add if unchecked
+    }));
   };
 
   const handleSave = async () => {
@@ -63,6 +92,7 @@ export default function AdminUsersPage() {
       role: form.role,
       active: form.active,
       expiresAt: form.expiresAt || null,
+      allowedServers: form.allowedServers, // Include the array in the payload
     };
     if (form.password) body.password = form.password;
 
@@ -224,7 +254,29 @@ export default function AdminUsersPage() {
                 <label className="block text-sm text-text-muted mb-1">Expiry Date (optional)</label>
                 <input type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} className="w-full px-4 py-2.5 bg-surface border border-border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
               </div>
-              <div className="flex items-center gap-2">
+              
+              {/* Allowed Servers Checkboxes */}
+              <div>
+                <label className="block text-sm text-text-muted mb-2">Allowed Streaming Servers</label>
+                <div className="flex flex-wrap gap-2">
+                  {AVAILABLE_SERVERS.map((serverName) => (
+                    <label 
+                      key={serverName} 
+                      className="flex items-center gap-2 bg-surface-3 px-3 py-2 rounded-xl cursor-pointer hover:bg-surface-3/80 transition-colors border border-transparent hover:border-border"
+                    >
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-border text-brand focus:ring-brand bg-surface-2 cursor-pointer"
+                        checked={form.allowedServers.includes(serverName)}
+                        onChange={() => handleServerToggle(serverName)}
+                      />
+                      <span className="text-sm text-white font-medium">{serverName}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mt-2">
                 <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="rounded" id="active" />
                 <label htmlFor="active" className="text-sm text-text-muted">Active</label>
               </div>
