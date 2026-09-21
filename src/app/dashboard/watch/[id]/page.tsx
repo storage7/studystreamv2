@@ -24,6 +24,21 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
 
+  // 1. Safely extract allowed servers from the user context
+  // Using 'any' type casting here temporarily in case your frontend User interface isn't updated yet
+  const userAllowedServers = Array.isArray((user as any)?.allowedServers) 
+    ? (user as any).allowedServers 
+    : [];
+
+  // 2. Filter the servers based on permissions
+  // If the user's allowed array is empty, we default to showing all servers to prevent total lockouts
+  const availableServers = lecture?.servers.filter((server) => 
+    userAllowedServers.length === 0 || userAllowedServers.includes(server.name)
+  ) || [];
+
+  // 3. Ensure the active server index doesn't go out of bounds if a server is revoked
+  const validServerIdx = activeServer < availableServers.length ? activeServer : 0;
+
   useEffect(() => {
     setLoading(true);
     fetch(`/api/lectures/${id}`)
@@ -72,14 +87,14 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
   const switchServer = (idx: number) => {
     setActiveServer(idx);
     localStorage.setItem(`server_${id}`, String(idx));
-    // Save to history
-    if (lecture) {
+    // Save to history using the availableServers array
+    if (lecture && availableServers[idx]) {
       fetch("/api/history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lectureId: id,
-          lastServer: lecture.servers[idx]?.name,
+          lastServer: availableServers[idx].name,
         }),
       });
     }
@@ -104,7 +119,8 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
     );
   }
 
-  const serverUrl = lecture.servers[activeServer]?.url;
+  // 4. Retrieve the actual video URL from the securely filtered array
+  const serverUrl = availableServers[validServerIdx]?.url;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -121,7 +137,7 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-surface-3">
-              <p className="text-text-muted">No streaming server available</p>
+              <p className="text-text-muted">No streaming server available for your account.</p>
             </div>
           )}
 
@@ -166,17 +182,17 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
             <p className="text-text-muted mt-3">{lecture.description}</p>
           )}
 
-          {/* Server Switcher */}
-          {lecture.servers.length > 0 && (
+          {/* 5. Server Switcher rendering the securely filtered array */}
+          {availableServers.length > 0 && (
             <div className="mt-6">
               <h3 className="text-sm font-semibold text-text-muted mb-3">Streaming Servers</h3>
               <div className="flex flex-wrap gap-2">
-                {lecture.servers.map((server, idx) => (
+                {availableServers.map((server, idx) => (
                   <button
                     key={idx}
                     onClick={() => switchServer(idx)}
                     className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                      activeServer === idx
+                      validServerIdx === idx
                         ? "bg-brand text-white"
                         : "bg-surface-2 text-text-muted border border-border hover:border-brand/50 hover:text-white"
                     }`}
