@@ -11,7 +11,6 @@ const SECRET = new TextEncoder().encode(
 );
 const COOKIE_NAME = "study_session";
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-// Added constant for Max-Age in seconds to ensure browser persistence
 const SESSION_DURATION_SEC = 7 * 24 * 60 * 60; 
 
 export async function hashPassword(password: string): Promise<string> {
@@ -43,7 +42,7 @@ export async function createSession(userId: string) {
     sameSite: "lax",
     path: "/",
     expires: expiresAt,
-    maxAge: SESSION_DURATION_SEC, // explicitly sets the cookie's lifespan
+    maxAge: SESSION_DURATION_SEC, 
   });
 
   return jwt;
@@ -74,7 +73,7 @@ export async function getSession() {
 
     if (!session) return null;
 
-    // Get user
+    // Get user WITH the allowedServers array
     const [user] = await db
       .select({
         id: users.id,
@@ -84,6 +83,7 @@ export async function getSession() {
         active: users.active,
         expiresAt: users.expiresAt,
         createdAt: users.createdAt,
+        allowedServers: users.allowedServers, // <-- ADDED THIS
       })
       .from(users)
       .where(eq(users.id, userId))
