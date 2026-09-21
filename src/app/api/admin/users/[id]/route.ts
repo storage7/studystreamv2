@@ -22,6 +22,9 @@ export async function PUT(
   if (body.active !== undefined) updates.active = body.active;
   if (body.expiresAt !== undefined) updates.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
   if (body.password) updates.passwordHash = await hashPassword(body.password);
+  
+  // Add support for the allowedServers array
+  if (body.allowedServers !== undefined) updates.allowedServers = body.allowedServers;
 
   const [updated] = await db
     .update(users)
@@ -34,6 +37,8 @@ export async function PUT(
       role: users.role,
       active: users.active,
       expiresAt: users.expiresAt,
+      // Return the updated allowedServers back to the admin dashboard
+      allowedServers: users.allowedServers,
     });
 
   if (!updated) {
