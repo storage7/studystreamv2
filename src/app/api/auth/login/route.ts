@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
         fullName: user.fullName,
         mobile: user.mobile,
         role: user.role,
+        allowedServers: user.allowedServers, // <-- ADDED THIS
       },
     });
   } catch {
