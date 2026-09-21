@@ -18,6 +18,7 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: varchar("role", { length: 20 }).notNull().default("guest"), // admin | guest
   active: boolean("active").notNull().default(true),
+  allowedServers: jsonb("allowed_servers").default([]),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
