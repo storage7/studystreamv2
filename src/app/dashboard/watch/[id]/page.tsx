@@ -30,10 +30,10 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
     ? (user as any).allowedServers 
     : [];
 
-  // 2. Filter the servers based on permissions
-  // If the user's allowed array is empty, we default to showing all servers to prevent total lockouts
+  // 2. STRICT FILTERING: Only show servers explicitly checked in the admin panel.
+  // We removed the `length === 0` fallback. If no boxes are checked, they see NOTHING.
   const availableServers = lecture?.servers.filter((server) => 
-    userAllowedServers.length === 0 || userAllowedServers.includes(server.name)
+    userAllowedServers.includes(server.name)
   ) || [];
 
   // 3. Ensure the active server index doesn't go out of bounds if a server is revoked
